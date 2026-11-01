@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Coffee, Users, Shield, Bell, User, MapPin } from "lucide-react";
+import { Coffee, Users, Shield, Bell, User, MapPin, Pencil, Check, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { dataStore } from "@/lib/data-store";
 import { Profile } from "@/types/database";
@@ -13,10 +13,13 @@ export default function Navbar() {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
 
   useEffect(() => {
     setCurrentUser(dataStore.getCurrentUser());
-    setProfiles(dataStore.profiles);
+    setProfiles([...dataStore.profiles]);
   }, []);
 
   const handleSwitchUser = (userId: string) => {
@@ -24,6 +27,29 @@ export default function Navbar() {
     setCurrentUser(dataStore.getCurrentUser());
     setShowUserDropdown(false);
     window.location.reload();
+  };
+
+  const handleStartEdit = (user: Profile, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingUser(user);
+    setEditDisplayName(user.display_name);
+    setEditUsername(user.username);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    const cleanDisplay = editDisplayName.trim();
+    if (!cleanDisplay) return;
+
+    dataStore.updateProfile(editingUser.id, {
+      display_name: cleanDisplay,
+      username: editUsername.trim() || editingUser.username,
+    });
+
+    setProfiles([...dataStore.profiles]);
+    setCurrentUser(dataStore.getCurrentUser());
+    setEditingUser(null);
   };
 
   const navLinks = [
@@ -115,27 +141,39 @@ export default function Navbar() {
                   Đổi tài khoản test:
                 </p>
                 {profiles.map((p) => (
-                  <button
+                  <div
                     key={p.id}
-                    onClick={() => handleSwitchUser(p.id)}
-                    className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-left text-xs transition-colors ${
+                    className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl transition-colors ${
                       p.id === currentUser?.id
                         ? "bg-espresso-100 font-bold text-espresso"
                         : "hover:bg-cream-100 text-espresso-600"
                     }`}
                   >
-                    <img
-                      src={p.avatar_url || ""}
-                      alt={p.display_name}
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
-                    <div className="flex-1 truncate">
-                      <div className="truncate">{p.display_name}</div>
-                      <div className="text-[10px] text-muted-gray">
-                        {p.role === "admin" ? "Admin" : `@${p.username}`}
+                    <button
+                      onClick={() => handleSwitchUser(p.id)}
+                      className="flex items-center space-x-2.5 flex-1 text-left text-xs truncate mr-1 py-1"
+                    >
+                      <img
+                        src={p.avatar_url || ""}
+                        alt={p.display_name}
+                        className="w-6 h-6 rounded-full object-cover shrink-0"
+                      />
+                      <div className="flex-1 truncate">
+                        <div className="truncate">{p.display_name}</div>
+                        <div className="text-[10px] text-muted-gray font-normal">
+                          {p.role === "admin" ? "Admin" : `@${p.username}`}
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleStartEdit(p, e)}
+                      className="p-1 rounded-lg text-espresso-400 hover:text-caramel hover:bg-white transition-colors"
+                      title={`Đổi tên ${p.display_name}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ))}
               </div>
 
@@ -159,6 +197,74 @@ export default function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Modal chỉnh sửa tên tài khoản */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 border border-espresso-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-espresso-100 mb-4">
+              <h3 className="font-extrabold text-base text-espresso flex items-center space-x-2">
+                <Pencil className="w-4 h-4 text-caramel" />
+                <span>Sửa tên tài khoản</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="p-1 rounded-full text-muted-gray hover:text-espresso hover:bg-cream-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-espresso mb-1">
+                  Tên hiển thị:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder="Ví dụ: Gia Định, Tuấn, Bảo..."
+                  className="w-full px-3 py-2 rounded-xl border border-espresso-200 text-sm focus:outline-none focus:border-caramel focus:ring-1 focus:ring-caramel"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-espresso mb-1">
+                  Tên người dùng (@username):
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  placeholder="Ví dụ: giadinh, tuanpham..."
+                  className="w-full px-3 py-2 rounded-xl border border-espresso-200 text-sm focus:outline-none focus:border-caramel focus:ring-1 focus:ring-caramel"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="flex-1 py-2 rounded-xl border border-espresso-200 text-xs font-semibold text-espresso-700 hover:bg-cream-100 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-espresso text-white text-xs font-bold hover:bg-caramel transition-colors flex items-center justify-center space-x-1 shadow-sm"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Lưu thay đổi</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

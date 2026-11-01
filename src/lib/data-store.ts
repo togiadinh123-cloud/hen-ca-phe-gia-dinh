@@ -579,11 +579,64 @@ class HenCaPheDataStore {
   // Active current user for development context
   currentUserId: string = "user_dinh";
 
+  constructor() {
+    if (typeof window !== "undefined") {
+      try {
+        const savedProfiles = localStorage.getItem("hen_ca_phe_profiles");
+        if (savedProfiles) {
+          const parsed = JSON.parse(savedProfiles);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.profiles = parsed;
+          }
+        }
+        const savedUserId = localStorage.getItem("hen_ca_phe_current_user_id");
+        if (savedUserId && this.profiles.some((p) => p.id === savedUserId)) {
+          this.currentUserId = savedUserId;
+        }
+      } catch (e) {
+        console.error("Failed to load profiles from localStorage", e);
+      }
+    }
+  }
+
   setCurrentUser(userId: string) {
     this.currentUserId = userId;
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("hen_ca_phe_current_user_id", userId);
+      } catch (e) {}
+    }
+  }
+
+  updateProfile(userId: string, updates: Partial<Profile>): Profile | null {
+    const idx = this.profiles.findIndex((p) => p.id === userId);
+    if (idx === -1) return null;
+
+    this.profiles[idx] = {
+      ...this.profiles[idx],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("hen_ca_phe_profiles", JSON.stringify(this.profiles));
+      } catch (e) {}
+    }
+
+    return this.profiles[idx];
   }
 
   getCurrentUser(): Profile {
+    if (typeof window !== "undefined") {
+      try {
+        const savedUserId = localStorage.getItem("hen_ca_phe_current_user_id");
+        if (savedUserId) {
+          const found = this.profiles.find((p) => p.id === savedUserId);
+          if (found) return found;
+        }
+      } catch (e) {}
+    }
     return (
       this.profiles.find((p) => p.id === this.currentUserId) ||
       this.profiles[0]

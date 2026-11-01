@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { User, Shield, Trophy, Coffee, Calendar, Settings, Lock } from "lucide-react";
+import { User, Shield, Trophy, Coffee, Calendar, Settings, Lock, Pencil, Check, X } from "lucide-react";
 import { dataStore } from "@/lib/data-store";
 import { Profile, FriendGroup, GroupMemberStats } from "@/types/database";
 import { calculateLevelFromXp } from "@/lib/reputation";
@@ -11,12 +11,19 @@ export default function MyProfilePage() {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [userGroups, setUserGroups] = useState<FriendGroup[]>([]);
   const [userStats, setUserStats] = useState<GroupMemberStats[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editDistrict, setEditDistrict] = useState("");
 
   useEffect(() => {
     const user = dataStore.getCurrentUser();
     setCurrentUser(user);
 
     if (user) {
+      setEditDisplayName(user.display_name);
+      setEditBio(user.bio || "");
+      setEditDistrict(user.district || "");
       const groups = dataStore.getUserGroups(user.id);
       setUserGroups(groups);
 
@@ -24,6 +31,24 @@ export default function MyProfilePage() {
       setUserStats(stats);
     }
   }, []);
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    const cleanDisplay = editDisplayName.trim();
+    if (!cleanDisplay) return;
+
+    const updated = dataStore.updateProfile(currentUser.id, {
+      display_name: cleanDisplay,
+      bio: editBio.trim(),
+      district: editDistrict.trim(),
+    });
+
+    if (updated) {
+      setCurrentUser({ ...updated });
+      setIsEditing(false);
+    }
+  };
 
   if (!currentUser) return null;
 
@@ -44,33 +69,104 @@ export default function MyProfilePage() {
               <p className="text-xs text-caramel font-semibold">@{currentUser.username}</p>
             </div>
 
-            <Link
-              href="/settings/privacy"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-espresso-200 text-xs font-semibold text-espresso hover:bg-cream-100 transition-colors mx-auto sm:mx-0"
-            >
-              <Settings className="w-3.5 h-3.5 text-caramel" />
-              <span>Quyền riêng tư</span>
-            </Link>
+            <div className="flex items-center gap-2 justify-center sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setIsEditing(!isEditing)}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-espresso-200 text-xs font-semibold text-espresso hover:bg-cream-100 transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5 text-caramel" />
+                <span>{isEditing ? "Đóng" : "Sửa tên & hồ sơ"}</span>
+              </button>
+              <Link
+                href="/settings/privacy"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-espresso-200 text-xs font-semibold text-espresso hover:bg-cream-100 transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5 text-caramel" />
+                <span>Quyền riêng tư</span>
+              </Link>
+            </div>
           </div>
 
-          {currentUser.bio && (
-            <p className="text-xs text-muted-gray leading-relaxed max-w-lg">
-              {currentUser.bio}
-            </p>
-          )}
+          {isEditing ? (
+            <form onSubmit={handleSaveProfile} className="pt-3 space-y-3 max-w-lg text-left">
+              <div>
+                <label className="block text-xs font-bold text-espresso mb-1">
+                  Tên hiển thị:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl border border-espresso-200 text-xs focus:outline-none focus:border-caramel"
+                />
+              </div>
 
-          {/* Coffee Preferences */}
-          {currentUser.coffee_preferences && currentUser.coffee_preferences.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
-              {currentUser.coffee_preferences.map((pref) => (
-                <span
-                  key={pref}
-                  className="px-2.5 py-0.5 rounded-full bg-cream-200 text-espresso text-[11px] font-medium"
+              <div>
+                <label className="block text-xs font-bold text-espresso mb-1">
+                  Khu vực / Quận:
+                </label>
+                <input
+                  type="text"
+                  value={editDistrict}
+                  onChange={(e) => setEditDistrict(e.target.value)}
+                  placeholder="Ví dụ: Quận 1, Bình Thạnh..."
+                  className="w-full px-3 py-1.5 rounded-xl border border-espresso-200 text-xs focus:outline-none focus:border-caramel"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-espresso mb-1">
+                  Giới thiệu ngắn (Bio):
+                </label>
+                <textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-1.5 rounded-xl border border-espresso-200 text-xs focus:outline-none focus:border-caramel"
+                />
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 rounded-xl border border-espresso-200 text-xs font-semibold text-espresso-700 hover:bg-cream-100"
                 >
-                  ☕ {pref}
-                </span>
-              ))}
-            </div>
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-xl bg-espresso text-white text-xs font-bold hover:bg-caramel transition-colors flex items-center space-x-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Lưu hồ sơ</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {currentUser.bio && (
+                <p className="text-xs text-muted-gray leading-relaxed max-w-lg">
+                  {currentUser.bio}
+                </p>
+              )}
+
+              {/* Coffee Preferences */}
+              {currentUser.coffee_preferences && currentUser.coffee_preferences.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
+                  {currentUser.coffee_preferences.map((pref) => (
+                    <span
+                      key={pref}
+                      className="px-2.5 py-0.5 rounded-full bg-cream-200 text-espresso text-[11px] font-medium"
+                    >
+                      ☕ {pref}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
